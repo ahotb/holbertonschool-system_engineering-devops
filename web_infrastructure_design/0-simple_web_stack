@@ -2,7 +2,7 @@
 
 ## Infrastructure Diagram
 
-```text
+```
   [ User Browser ]
          │
          │ (Input: [www.foobar.com](https://www.foobar.com))

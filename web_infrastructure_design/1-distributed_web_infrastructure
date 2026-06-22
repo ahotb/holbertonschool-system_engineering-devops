@@ -1,0 +1,85 @@
+# Task 1 - Three-Server Web Infrastructure
+
+## Infrastructure Diagram
+
+```
+                     [ User Browser ]
+                            │
+                            │ (Types: [www.foobar.com](https://www.foobar.com))
+                            ▼
+                  [ DNS Lookup System ]
+                            │ (Returns 8.8.8.8 of Load Balancer)
+                            ▼
+                       [ Internet ]
+                            │
+                            ▼
+              [ Load Balancer: HAProxy ]
+              (Algorithm: Round Robin)
+              /                        \
+             /                          \
+            ▼                            ▼
+┌─────────────────────────┐    ┌─────────────────────────┐
+│   SERVER 1 (Web & App)  │    │   SERVER 2 (Web & App)  │
+│                         │    │                         │
+│  [ Web Server: Nginx ]  │    │  [ Web Server: Nginx ]  │
+│            │            │    │            │            │
+│            ▼            │    │            ▼            │
+│  [ Application Server ] │    │  [ Application Server ] │
+│  (Code Base / Files)    │    │  (Code Base / Files)    │
+└─────────────────────────┘    └─────────────────────────┘
+            │                               │
+    (Write Operations)              (Read Operations)
+            │                               │
+            ▼                               ▼
+┌─────────────────────────┐    ┌─────────────────────────┐
+│  Database: MySQL        │    │  Database: MySQL        │
+│  (Primary / Master Node)│───>│  (Replica / Slave Node) │
+└─────────────────────────┘    └─────────────────────────┘
+```
+
+## Technical Specifics
+
+### Why each additional element was added:
+
+- HAProxy (Load Balancer): Added to act as a single entry point that manages incoming traffic and balances the load across multiple backend servers to prevent overloads.
+
+- Second Web/App Server: Added to provide redundancy. If one server fails, the other remains online to serve users, eliminating the previous single web server SPOF.
+
+- Second Database (Replica): Added to split database tasks, protect data, and maintain performance during high traffic.
+
+### Load Balancer Algorithm:
+
+The load balancer is configured with the Round Robin algorithm. It works by sending the first incoming request to Server 1, the second request to Server 2, the third back to Server 1, and so on, distributing traffic in a circular, equal sequence.
+
+### Active-Active vs. Active-Passive Setups:
+
+Our load balancer enables an Active-Active setup because both backend servers are actively receiving traffic and processing user requests at the same time.
+
+- Active-Active: All servers work simultaneously to share the traffic load.
+
+- Active-Passive: Only one server handles traffic (Active), while the backup server sits idle (Passive) and only turns on if the active server fails.
+
+### Database Primary-Replica Cluster:
+
+This cluster synchronizes data between two database instances. The Primary node automatically copies all new data changes and sends them to the Replica node in real-time, ensuring both have the same data.
+
+### Primary Node vs. Replica Node (Application View):
+
+- Primary Node: The application uses this node exclusively for Write operations (inserting, updating, or deleting data, like creating a new account).
+
+- Replica Node: The application uses this node exclusively for Read operations (fetching or displaying data, like reading a blog post), which reduces the workload on the primary node.
+
+## Remaining Infrastructure Issues
+
+1. New Single Points of Failure (SPOF)
+   HAProxy: We only have one load balancer. If HAProxy crashes, the entire website goes offline immediately.
+
+   Primary Database: If the primary database node fails, the application can no longer accept any write operations (like user sign-ups).
+
+2. Security Vulnerabilities
+   No Firewall: There is no software or hardware firewall to block malicious traffic, network attacks, or unauthorized port access.
+
+   No HTTPS: Traffic moves over unencrypted HTTP. Data sent between the user and the server is visible in plain text, making it vulnerable to interception.
+
+3. Missing Monitoring
+   There are no monitoring tools or health checks installed. If a service crashes or runs out of memory, the team will not receive any alerts until users report that the website is broken.

@@ -1,0 +1,63 @@
+# Task 3 - Scaled-Up and Split Component Infrastructure
+
+## Infrastructure Diagram
+
+```text
+                        [ User Browser ]
+                               │
+                               ▼
+                    [ DNS Lookup System ]
+                               │
+                               ▼
+               ┌──────────────────────────────┐
+               │    Virtual / Floating IP     │
+               └──────────────────────────────┘
+                 /                          \
+         (Active Node)              (Passive Backup)
+               /                              \
+              ▼                                ▼
+   [ HAProxy Load Balancer 1 ] ──Cluster──> [ HAProxy Load Balancer 2 ]
+         │               │                        │               │
+         │ (Round Robin) │                        │ (Round Robin) │
+         ▼               ▼                        ▼               ▼
+   [ Web Server 1 ] [ Web Server 2 ]        [ Web Server 1 ] [ Web Server 2 ]
+   (Nginx - Static) (Nginx - Static)        (Nginx - Static) (Nginx - Static)
+         │               │                        │               │
+         └───────┬───────┘                        └───────┬───────┘
+                 │ (Forward Dynamic Requests)             │
+                 ▼                                        ▼
+   ┌───────────────────────────┐            ┌───────────────────────────┐
+   │    Application Server 1   │            │    Application Server 2   │
+   │   (Executes App Logic)    │            │   (Executes App Logic)    │
+   └───────────────────────────┘            └───────────────────────────┘
+                 │                                        │
+         (Write Operations)                       (Read Operations)
+                 │                                        │
+                 ▼                                        ▼
+   ┌───────────────────────────┐            ┌───────────────────────────┐
+   │   Database: MySQL         │            │   Database: MySQL         │
+   │   (Primary Node)          │───────────>│   (Replica Node)          │
+   └───────────────────────────┘            └───────────────────────────┘
+```
+
+---
+
+## Technical Specifics
+
+### Application Server vs. Web Server:
+
+- Web Server (Nginx): Its primary job is to handle HTTP/HTTPS network traffic, manage security certificates, and serve static assets (like HTML, CSS, and images) directly and quickly to the client.
+
+- Application Server: Its primary job is to run the dynamic backend codebase (the business logic). It processes data, computes application code, and talks directly to the database to generate custom responses.
+
+### Why each additional element was added:
+
+- Second HAProxy (Configured as a Cluster): Added to remove the single point of failure (SPOF) at the load balancing layer. It runs in an Active-Passive high-availability setup. If the primary load balancer fails, the backup automatically takes over using a shared floating IP.
+
+- Separating Components onto Dedicated Servers: We completely separated the Web, Application, and Database layers onto their own independent machines. This ensures that a resource spike (like a heavy database query consuming 100% RAM) will not crash the web server or the application server. It allows each component to scale horizontally and perform at maximum efficiency.
+
+## Infrastructure Achievements
+
+- Zero Web/App/LB SPOF: The entire architecture is now highly available. No single hardware or software crash at the network, web, or app layer can bring the entire website down.
+
+- Resource Optimization: By separating infrastructure concerns, hardware is fully optimized for specific software tasks (Nginx utilizes high network I/O, while MySQL utilizes high disk and memory I/O).

@@ -1,0 +1,79 @@
+# Task 2 - Secured and Monitored Web Infrastructure
+
+## Infrastructure Diagram
+
+```
+                        [ User Browser ]
+                               │
+                               │ (Encrypted HTTPS Traffic - Port 443)
+                               ▼
+                     [ DNS Lookup System ]
+                               │
+                               ▼
+                     ┌──────────────────┐
+                     │  Firewall 1      │
+                     └──────────────────┘
+                               │
+                               ▼
+                   [ Load Balancer: HAProxy ]
+                   (SSL Certificate Installed Here)
+                    /                        \
+                   /                          \
+                  ▼                            ▼
+        ┌──────────────────┐          ┌──────────────────┐
+        │  Firewall 2      │          │  Firewall 3      │
+        └──────────────────┘          └──────────────────┘
+                  │                             │
+                  ▼                             ▼
+     ┌─────────────────────────┐   ┌─────────────────────────┐
+     │   SERVER 1 (Web & App)  │   │   SERVER 2 (Web & App)  │
+     │                         │   │                         │
+     │  [ Web Server: Nginx ]  │   │  [ Web Server: Nginx ]  │
+     │  [ Application Server ] │   │  [ Application Server ] │
+     │                         │   │                         │
+     │  [ Monitoring Client ]  │   │  [ Monitoring Client ]  │
+     └─────────────────────────┘   └─────────────────────────┘
+                 │                              │
+         (Write Operations)             (Read Operations)
+                 │                              │
+                 ▼                              ▼
+     ┌─────────────────────────┐   ┌─────────────────────────┐
+     │ Database: MySQL         │   │ Database: MySQL         │
+     │ (Primary Node)          │──>│ (Replica Node)          │
+     └─────────────────────────┘   └─────────────────────────┘
+```
+
+---
+
+## Technical Specifics
+
+### Purpose of the additional elements:
+
+- Firewalls (3 Units): Added to secure each network boundary. They block unauthorized incoming traffic and restrict access to open ports.
+
+- SSL Certificate: Added to enable HTTPS encryption, securing data exchanges between the client's browser and the web stack.
+
+- Monitoring Clients (3 Units): Added to gather system performance metrics and logs, allowing real-time tracking of infrastructure health.
+
+### Core Concepts Explained:
+
+- What are firewalls for? Firewalls act as security barriers that filter incoming and outgoing network traffic based on strict security rules, protecting servers from malicious attacks.
+
+- Why traffic is served over HTTPS? HTTPS ensures that all transmitted data is encrypted. This prevents attackers from intercepting, reading, or tampering with sensitive user data (like passwords).
+
+- What monitoring is used for? Monitoring provides visibility into system health. It alerts engineers about server crashes, high resource usage, or unusual traffic patterns before they cause major outages.
+
+- How the monitoring tool collects data? The client tool continually reads internal operating system metrics (CPU, RAM, Disk) and parses application log files (like Nginx access logs), shipping this data to a central dashboard (e.g., Sumo Logic).
+
+- How to monitor web server QPS (Queries Per Second)? To monitor QPS, you configure the monitoring agent to parse the Nginx access.log file. The tool counts the number of incoming HTTP requests per second and displays the real-time rate on a graph.
+
+## Remaining Infrastructure Issues
+
+1. SSL Termination Risks
+   Terminating SSL at the load balancer level means traffic is decrypted at the HAProxy layer. The data traveling from the load balancer to the backend servers moves in unencrypted plain text (HTTP). If an intruder gains access to the internal network, they can easily sniff sensitive user data.
+
+2. Single MySQL Write Node Issues
+   Having only one Primary database capable of accepting writes creates a performance bottleneck and a critical point of failure. If the primary node crashes, the entire web application becomes read-only, preventing users from signing up, posting, or saving any data.
+
+3. Mixed-Component Server Overload
+   Running the Web Server, Application Server, and Database together on the same physical or virtual machine forces them to fight for the exact same CPU and RAM resources. If a database query suddenly consumes 100% of the memory, it will instantly crash the web and application servers hosting the website on that same machine.
